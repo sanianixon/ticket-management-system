@@ -11,6 +11,9 @@ from django.contrib.auth import get_user_model
 from .serializers import CustomUserSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.core.mail import send_mail
+from django.contrib.auth.hashers import check_password
+from rest_framework import status
+
 
 from .models import Project, Ticket, Comment, TicketHistory
 from .serializers import (
@@ -273,7 +276,8 @@ class TicketManualAPIView(APIView):
             success=True,
             data="Ticket deleted successfully"
         )
-    
+
+
 class LoginAPIView(APIView):
     permission_classes = [AllowAny]
 
@@ -281,34 +285,50 @@ class LoginAPIView(APIView):
         username = request.data.get("username")
         password = request.data.get("password")
 
-        user = authenticate(
-            request,
-            username=username,
-            password=password
-        )
-
-        if user is not None:
-            refresh = RefreshToken.for_user(user)
-
+        if not username or not password:
             return Response({
-                "success": True,
-                "message": "Login successful",
-                "user": {
-                    "id": user.id,
-                    "username": user.username,
-                    "role": user.role,
-                },
-                "tokens": {
-                    "refresh": str(refresh),
-                    "access": str(refresh.access_token),
-                }
-            })
+                "success": False,
+                "message": "Username and password are required"
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        User = get_user_model()
+
+        try:
+            user = User.objects.get(username=username)
+        except User.DoesNotExist:
+            return Response({
+                "success": False,
+                "message": "Invalid username or password"
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        if not check_password(password, user.password):
+            return Response({
+                "success": False,
+                "message": "Invalid username or password"
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        if not user.is_active:
+            return Response({
+                "success": False,
+                "message": "User account is inactive"
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        refresh = RefreshToken.for_user(user)
 
         return Response({
-            "success": False,
-            "message": "Invalid username or password"
-        }, status=400)
-
+            "success": True,
+            "message": "Login successful",
+            "user": {
+                "id": user.id,
+                "username": user.username,
+                "role": user.role,
+            },
+            "tokens": {
+                "refresh": str(refresh),
+                "access": str(refresh.access_token),
+            }
+        }, status=status.HTTP_200_OK)
+    
 class LogoutAPIView(APIView):
 
     def post(self, request):
