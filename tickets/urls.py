@@ -34,4 +34,5 @@ urlpatterns = [
     path("users/", UserListAPIView.as_view()),
     path("token/", TokenObtainPairView.as_view()),
     path("token/refresh/", TokenRefreshView.as_view()),
+    path("logout/", LogoutAPIView.as_view(), name="logout"),
 ]

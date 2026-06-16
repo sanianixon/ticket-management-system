@@ -13,6 +13,8 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.core.mail import send_mail
 from django.contrib.auth.hashers import check_password
 from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
+from rest_framework_simplejwt.tokens import RefreshToken
 
 
 from .models import Project, Ticket, Comment, TicketHistory
@@ -330,14 +332,31 @@ class LoginAPIView(APIView):
         }, status=status.HTTP_200_OK)
     
 class LogoutAPIView(APIView):
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        logout(request)
+        refresh_token = request.data.get("refresh")
 
-        return Response({
-            "success": True,
-            "message": "Logout successful"
-        })
+        if not refresh_token:
+            return Response({
+                "success": False,
+                "message": "Refresh token is required"
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+
+            return Response({
+                "success": True,
+                "message": "Logged out successfully"
+            }, status=status.HTTP_200_OK)
+
+        except Exception:
+            return Response({
+                "success": False,
+                "message": "Invalid or expired token"
+            }, status=status.HTTP_400_BAD_REQUEST)
 
 
 class CurrentUserAPIView(APIView):
