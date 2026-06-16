@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Ticket Detail</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div class="page-container">
+
+        <div class="top-bar">
+            <h1>Ticket Detail</h1>
+
+            <div>
+                <a href="tickets.html">Back to Tickets</a>
+                <button onclick="logout()">Logout</button>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Ticket Information</h2>
+            <div id="ticketDetails" class="detail-box"></div>
+        </div>
+
+        <div class="section">
+            <h2>Update Status</h2>
+
+            <select id="newStatus">
+                <option value="OPEN">OPEN</option>
+                <option value="IN_PROGRESS">IN_PROGRESS</option>
+                <option value="RESOLVED">RESOLVED</option>
+                <option value="CLOSED">CLOSED</option>
+            </select>
+
+            <button onclick="updateStatus()">Update Status</button>
+        </div>
+
+        <div class="section">
+            <h2>Add Comment</h2>
+
+            <input id="message" placeholder="Comment message">
+            <button onclick="addComment()">Add Comment</button>
+        </div>
+
+        <div class="section">
+            <h2>Comments</h2>
+            <ul id="commentsList"></ul>
+        </div>
+
+        <div class="section">
+            <h2>History</h2>
+            <ul id="historyList"></ul>
+        </div>
+
+    </div>
+
+    <script>
+        async function logout() {
+            localStorage.removeItem("access_token");
+            localStorage.removeItem("refresh_token");
+            localStorage.removeItem("user");
+
+            window.location.href = "login.html";
+        }
+
+        const params = new URLSearchParams(window.location.search);
+        const ticketId = params.get("id");
+
+        const user = JSON.parse(localStorage.getItem("user"));
+
+        if (!user) {
+            window.location.href = "login.html";
+        }
+
+        function getAuthHeaders() {
+            const token = localStorage.getItem("access_token");
+
+            return {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`
+            };
+        }
+
+        async function loadTicket() {
+            const response = await fetch(`http://127.0.0.1:8000/api/manual-tickets/${ticketId}/`, {
+                headers: getAuthHeaders()
+            });
+
+            const result = await response.json();
+            const ticket = result.data || result;
+
+            document.getElementById("ticketDetails").innerHTML = `
+                <p><b>ID:</b> ${ticket.id}</p>
+                <p><b>Title:</b> ${ticket.title}</p>
+                <p><b>Description:</b> ${ticket.description}</p>
+                <p><b>Status:</b> ${ticket.status}</p>
+                <p><b>Priority:</b> ${ticket.priority}</p>
+                <p><b>Project:</b> ${ticket.project_name || ticket.project}</p>
+                <p><b>Assigned To:</b> ${ticket.assigned_to_username || ticket.assigned_to}</p>
+            `;
+
+            document.getElementById("newStatus").value = ticket.status;
+        }
+
+        async function updateStatus() {
+            const newStatus = document.getElementById("newStatus").value;
+
+            const response = await fetch(`http://127.0.0.1:8000/api/manual-tickets/${ticketId}/`, {
+                method: "PATCH",
+                headers: getAuthHeaders(),
+                body: JSON.stringify({
+                    status: newStatus
+                })
+            });
+
+            const data = await response.json();
+            console.log(data);
+
+            loadTicket();
+            loadHistory();
+        }
+
+        async function addComment() {
+            const message = document.getElementById("message").value;
+
+            const response = await fetch("http://127.0.0.1:8000/api/comments/", {
+                method: "POST",
+                headers: getAuthHeaders(),
+                body: JSON.stringify({
+                    ticket: ticketId,
+                    author: user.id,
+                    message: message
+                })
+            });
+
+            const data = await response.json();
+            console.log(data);
+
+            document.getElementById("message").value = "";
+            loadComments();
+        }
+
+        async function loadComments() {
+            const response = await fetch(`http://127.0.0.1:8000/api/tickets/${ticketId}/comments/`, {
+                headers: getAuthHeaders()
+            });
+
+            const comments = await response.json();
+
+            const list = document.getElementById("commentsList");
+            list.innerHTML = "";
+
+            comments.forEach(comment => {
+                const item = document.createElement("li");
+
+                item.innerHTML = `
+                    <div class="ticket-card">
+                        <p><b>Author:</b> ${comment.author}</p>
+                        <p>${comment.message}</p>
+                    </div>
+                `;
+
+                list.appendChild(item);
+            });
+        }
+
+        async function loadHistory() {
+            const response = await fetch(`http://127.0.0.1:8000/api/tickets/${ticketId}/history/`, {
+                headers: getAuthHeaders()
+            });
+
+            const history = await response.json();
+
+            const list = document.getElementById("historyList");
+            list.innerHTML = "";
+
+            history.forEach(record => {
+                const item = document.createElement("li");
+
+                item.innerHTML = `
+                    <div class="ticket-card">
+                        <p>${record.old_status} → ${record.new_status}</p>
+                    </div>
+                `;
+
+                list.appendChild(item);
+            });
+        }
+
+        loadTicket();
+        loadComments();
+        loadHistory();
+    </script>
+</body>
+</html>

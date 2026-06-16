@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Login</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body class="login-page">
+
+    <div class="login-card">
+        <h1>Ticket Management Login</h1>
+
+        <input id="username" placeholder="Username">
+        <input id="password" type="password" placeholder="Password">
+
+        <button onclick="loginUser()">Login</button>
+        <p id="message"></p>
+    </div>
+
+    <script>
+        async function loginUser() {
+            const username = document.getElementById("username").value;
+            const password = document.getElementById("password").value;
+
+            const response = await fetch("http://127.0.0.1:8000/api/login/", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    username: username,
+                    password: password
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                localStorage.setItem("access_token", data.tokens.access);
+                localStorage.setItem("refresh_token", data.tokens.refresh);
+                localStorage.setItem("user", JSON.stringify(data.user));
+                document.getElementById("message").innerText = "Login successful";
+
+                localStorage.setItem("user", JSON.stringify(data.user));
+
+                if (data.user.role === "ADMIN") {
+                    window.location.href = "index.html";
+                } else {
+                    window.location.href = "tickets.html";
+                }
+            } else {
+                document.getElementById("message").innerText = data.message;
+            }
+        }
+    </script>
+</body>
+</html>

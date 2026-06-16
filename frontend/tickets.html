@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Tickets</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+   <div class="top-bar">
+    <h1>Tickets</h1>
+
+    <div>
+        <span id="loggedInUser"></span>
+        <button onclick="logout()">Logout</button>
+    </div>
+</div>
+
+<div class="nav-links">
+    <button onclick="window.location.href='index.html'">
+        Projects
+    </button>   
+</div>
+
+<div class="section">
+
+    <h2>Create Ticket</h2>
+
+    <div class="ticket-form">
+
+        <input id="title" placeholder="Title">
+
+        <input id="description" placeholder="Description">
+
+        <select id="status">
+            <option value="OPEN">OPEN</option>
+            <option value="IN_PROGRESS">IN_PROGRESS</option>
+            <option value="RESOLVED">RESOLVED</option>
+            <option value="CLOSED">CLOSED</option>
+        </select>
+
+        <select id="priority">
+            <option value="LOW">LOW</option>
+            <option value="MEDIUM">MEDIUM</option>
+            <option value="HIGH">HIGH</option>
+            <option value="CRITICAL">CRITICAL</option>
+        </select>
+
+        <select id="project"></select>
+
+        <select id="created_by"></select>
+
+        <select id="assigned_to"></select>
+
+    </div>
+
+    <br>
+
+    <button onclick="createTicket()">Create Ticket</button>
+
+</div>
+<div class="section">
+
+    <h2>Active Tickets</h2>
+
+    <p>
+        Resolved and closed tickets are hidden from this dashboard
+        but still exist in the API/history.
+    </p>
+
+    <ul id="ticketList"></ul>
+
+</div>
+
+    <script>
+
+        async function logout() {
+
+            localStorage.removeItem("access_token");
+            localStorage.removeItem("refresh_token");
+            localStorage.removeItem("user");
+
+            window.location.href = "login.html";
+        }
+
+
+        const user = JSON.parse(localStorage.getItem("user"));
+
+        if (user) {
+            document.getElementById("loggedInUser").innerText =
+                `Logged in as: ${user.username} (${user.role})`;
+        } else {
+            window.location.href = "login.html";
+        }
+
+        function getAuthHeaders() {
+            const token = localStorage.getItem("access_token");
+
+            return {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`
+            };
+        }
+
+        async function loadUsers() {
+            const response = await fetch("http://127.0.0.1:8000/api/users/", {
+                headers: getAuthHeaders()
+            });
+
+            const result = await response.json();
+            const users = result.data || [];
+
+            const createdByDropdown = document.getElementById("created_by");
+            const assignedToDropdown = document.getElementById("assigned_to");
+
+            createdByDropdown.innerHTML = "";
+            assignedToDropdown.innerHTML = "";
+
+            users.forEach(user => {
+                createdByDropdown.innerHTML += `
+                    <option value="${user.id}">
+                        ${user.username} (${user.role})
+                    </option>
+                `;
+
+                assignedToDropdown.innerHTML += `
+                    <option value="${user.id}">
+                        ${user.username} (${user.role})
+                    </option>
+                `;
+            });
+
+            if (user) {
+                createdByDropdown.value = user.id;
+            }
+        }
+
+        async function loadProjects() {
+            const response = await fetch("http://127.0.0.1:8000/api/projects/", {
+                headers: getAuthHeaders()
+            });
+
+            const projects = await response.json();
+
+            const projectDropdown = document.getElementById("project");
+            projectDropdown.innerHTML = "";
+
+            projects.forEach(project => {
+                projectDropdown.innerHTML += `
+                    <option value="${project.id}">
+                        ${project.name}
+                    </option>
+                `;
+            });
+        }
+
+        async function loadTickets() {
+            const response = await fetch("http://127.0.0.1:8000/api/manual-tickets/", {
+                headers: getAuthHeaders()
+            });
+
+            const result = await response.json();
+            const tickets = result.data.tickets || [];
+
+            const list = document.getElementById("ticketList");
+            list.innerHTML = "";
+
+            tickets
+                .filter(ticket => ticket.status !== "RESOLVED" && ticket.status !== "CLOSED")
+                .forEach(ticket => {
+                    const item = document.createElement("li");
+
+                    item.innerHTML = `
+                        <div class="ticket-card">
+                            <h3>${ticket.title}</h3>
+
+                            <p><strong>Status:</strong> ${ticket.status}</p>
+                            <p><strong>Priority:</strong> ${ticket.priority}</p>
+                            <p><strong>Project:</strong> ${ticket.project_name || ticket.project}</p>
+                            <p><strong>Assigned To:</strong> ${ticket.assigned_to_username || ticket.assigned_to || "Not Assigned"}</p>
+
+                            <a href="ticket-detail.html?id=${ticket.id}">
+                                View Details
+                            </a>
+                        </div>
+                    `;
+
+                    list.appendChild(item);
+                });
+        }
+
+        async function createTicket() {
+            const response = await fetch("http://127.0.0.1:8000/api/manual-tickets/", {
+                method: "POST",
+                headers: getAuthHeaders(),
+                body: JSON.stringify({
+                    title: document.getElementById("title").value,
+                    description: document.getElementById("description").value,
+                    status: document.getElementById("status").value,
+                    priority: document.getElementById("priority").value,
+                    project: document.getElementById("project").value,
+                    created_by: document.getElementById("created_by").value,
+                    assigned_to: document.getElementById("assigned_to").value
+                })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || data.success === false) {
+                alert(JSON.stringify(data.errors || data));
+                return;
+            }
+
+            document.getElementById("title").value = "";
+            document.getElementById("description").value = "";
+
+            loadTickets();
+        }
+
+        loadUsers();
+        loadProjects();
+        loadTickets();
+    </script>
+</body>
+</html>
