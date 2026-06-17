@@ -12,9 +12,8 @@ from .serializers import CustomUserSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.core.mail import send_mail
 from django.contrib.auth.hashers import check_password
-from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-from rest_framework_simplejwt.tokens import RefreshToken
+
 
 
 from .models import Project, Ticket, Comment, TicketHistory
@@ -78,6 +77,7 @@ class DashboardSummaryAPIView(APIView):
 
 
 class TicketManualAPIView(APIView):
+    permission_classes = [IsAuthenticated]
 
     def custom_response(
         self,
@@ -142,6 +142,15 @@ class TicketManualAPIView(APIView):
             tickets = Ticket.objects.all()
         else:
             tickets = Ticket.objects.filter(assigned_to=request.user)
+
+        status_filter = request.GET.get("status")
+        priority_filter = request.GET.get("priority")
+
+        if status_filter:
+            tickets = tickets.filter(status=status_filter)
+
+        if priority_filter:
+            tickets = tickets.filter(priority=priority_filter)
 
         serializer = TicketSerializer(tickets, many=True)
 
