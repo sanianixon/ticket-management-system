@@ -56,6 +56,20 @@
 
     <script>
         async function logout() {
+            const refreshToken = localStorage.getItem("refresh_token");
+
+            try {
+                await fetch("http://127.0.0.1:8000/api/logout/", {
+                    method: "POST",
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({
+                        refresh: refreshToken
+                    })
+                });
+            } catch (error) {
+                console.log("Logout API error:", error);
+            }
+
             localStorage.removeItem("access_token");
             localStorage.removeItem("refresh_token");
             localStorage.removeItem("user");

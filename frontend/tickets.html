@@ -73,6 +73,19 @@
     <script>
 
         async function logout() {
+            const refreshToken = localStorage.getItem("refresh_token");
+
+            try {
+                await fetch("http://127.0.0.1:8000/api/logout/", {
+                    method: "POST",
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({
+                        refresh: refreshToken
+                    })
+                });
+            } catch (error) {
+                console.log("Logout API error:", error);
+            }
 
             localStorage.removeItem("access_token");
             localStorage.removeItem("refresh_token");
@@ -80,8 +93,6 @@
 
             window.location.href = "login.html";
         }
-
-
         const user = JSON.parse(localStorage.getItem("user"));
 
         if (user) {
